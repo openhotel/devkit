@@ -1,0 +1,120 @@
+name: openhotel-dev
+
+x-dev: &dev
+  image: openhotel-dev
+  network_mode: service:net
+  depends_on: [net]
+  restart: unless-stopped
+  tty: true
+
+services:
+  net:
+    image: alpine
+    container_name: net
+    command: sleep infinity
+    ports:
+      - "1994:1994" # client
+      - "2024:2024" # auth
+      - "2025:2025" # web
+      - "9400:9400" # onet
+      - "2030:2030" # asset-editor
+      - "1995:1995" # static
+      - "9000:9000" # s3
+
+  s3:
+    image: chrislusf/seaweedfs:latest
+    container_name: s3
+    network_mode: service:net
+    depends_on: [net]
+    restart: unless-stopped
+    command: server -dir=/data -s3 -s3.port=9000 -s3.config=/etc/seaweedfs/s3.json
+    volumes:
+      - ./s3/config.json:/etc/seaweedfs/s3.json:ro
+      - s3-data:/data
+
+  auth:
+    <<: *dev
+    container_name: auth
+    build:
+      context: .
+      args:
+        DENO_VERSION: ${DENO_VERSION:-2.9.7}
+    working_dir: /src/auth
+    command: bash -c "deno task install && deno task start"
+    healthcheck:
+      test: curl -fs http://localhost:20240/api/v3/_/version
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5m
+    volumes:
+      - ${REPOS_DIR:-..}/auth:/src/auth
+      - /src/auth/node_modules
+      - /src/auth/app/client/node_modules
+      - deno-cache:/root/.cache/deno
+
+  client:
+    <<: *dev
+    container_name: client
+    working_dir: /src/openhotel
+    command: bash -c "deno task install && deno task start"
+    volumes:
+      - ${REPOS_DIR:-..}/openhotel:/src/openhotel
+      - /src/openhotel/node_modules
+      - /src/openhotel/app/client/node_modules
+      - /src/openhotel/app/server/node_modules
+      - deno-cache:/root/.cache/deno
+
+  onet:
+    <<: *dev
+    container_name: onet
+    depends_on:
+      net:
+        condition: service_started
+      auth:
+        condition: service_healthy
+    working_dir: /src/onet
+    command: bash -c "yarn install && deno task start"
+    volumes:
+      - ${REPOS_DIR:-..}/onet:/src/onet
+      - /src/onet/node_modules
+      - deno-cache:/root/.cache/deno
+
+
+  web:
+    <<: *dev
+    container_name: web
+    working_dir: /src/web
+    command: bash -c "deno task install && deno task start"
+    volumes:
+      - ${REPOS_DIR:-..}/web:/src/web
+      - /src/web/node_modules
+      - /src/web/app/client/node_modules
+      - deno-cache:/root/.cache/deno
+
+  asset-editor:
+    <<: *dev
+    container_name: asset-editor
+    working_dir: /src/asset-editor
+    command: bash -c "deno task install && deno task start"
+    volumes:
+      - ${REPOS_DIR:-..}/asset-editor:/src/asset-editor
+      - /src/asset-editor/node_modules
+      - /src/asset-editor/app/client/node_modules
+      - /src/asset-editor/app/server/node_modules
+      - deno-cache:/root/.cache/deno
+
+  static:
+    <<: *dev
+    container_name: static
+    working_dir: /src/static
+    command: bash -c "deno task install && deno task start"
+    volumes:
+      - ${REPOS_DIR:-..}/static:/src/static
+      - /src/static/node_modules
+      - /src/static/app/client/node_modules
+      - deno-cache:/root/.cache/deno
+
+volumes:
+  deno-cache:
+  s3-data:
