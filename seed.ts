@@ -15,14 +15,29 @@ type Seed = { users: User[]; hotel: { name: string } };
 type Session = Record<string, string>;
 type Response<Data> = { status: number; data?: Data; message?: string };
 
+type Integration = {
+  name: string;
+  redirectUrl: string;
+  type: "client" | "web";
+};
+
 const AUTH_API = "http://localhost:2024/api/v3";
 const FINGERPRINT = "devkit-seed";
-const INTEGRATION = {
-  name: "devkit",
-  redirectUrl: "http://localhost:1994",
-  type: "client",
+const INTEGRATIONS: Record<string, Integration> = {
+  client: {
+    name: "devkit",
+    redirectUrl: "http://localhost:1994",
+    type: "client",
+  },
+  web: {
+    name: "devkit-web",
+    redirectUrl: "http://localhost:2025",
+    type: "web",
+  },
 };
 const ONET_TOKEN_LABEL = "onet";
+const STATIC_URL = "http://localhost:1995";
+const ASSET_EDITOR_URL = "http://localhost:2030";
 
 const request = async <Data>(
   method: string,
@@ -85,17 +100,14 @@ const setAdmin = async (user: User, session: Session) => {
   else ok(`auth already has an admin`);
 };
 
-const getLicenseToken = async (
-  name: string,
-  session: Session,
-): Promise<string> => {
-  type Hotel = {
-    hotelId: string;
-    name: string;
-    integrations: { integrationId: string; name: string }[];
-  };
+type Hotel = {
+  hotelId: string;
+  name: string;
+  integrations: { integrationId: string; name: string }[];
+};
 
-  const getHotel = async () => {
+const getHotel = async (name: string, session: Session): Promise<Hotel> => {
+  const findHotel = async () => {
     const { data } = await request<{ hotels: Hotel[] }>(
       "GET",
       "/user/@me/hotel",
@@ -105,76 +117,90 @@ const getLicenseToken = async (
     return data?.hotels.find((hotel) => hotel.name === name);
   };
 
-  let hotel = await getHotel();
-  if (!hotel) {
-    const { status } = await request("POST", "/user/@me/hotel", {
-      headers: session,
-      body: { name, public: false },
-    });
-
-    if (status !== 200) fail(`hotel: create failed (${status})`);
-
-    hotel = (await getHotel())!;
-    ok(`hotel: '${name}' created`);
-  } else {
+  const hotel = await findHotel();
+  if (hotel) {
     ok(`hotel: '${name}' already exists`);
+    return hotel;
   }
 
-  let integration = hotel.integrations.find(
-    ({ name }) => name === INTEGRATION.name,
-  );
-  if (!integration) {
+  const { status } = await request("POST", "/user/@me/hotel", {
+    headers: session,
+    body: { name, public: true },
+  });
+
+  if (status !== 200) fail(`hotel: create failed (${status})`);
+
+  ok(`hotel: '${name}' created`);
+
+  const createdHotel = await findHotel();
+  return createdHotel!;
+};
+
+const getLicenseToken = async (
+  hotel: Hotel,
+  integration: Integration,
+  session: Session,
+): Promise<string> => {
+  let integrationId = hotel.integrations.find(
+    ({ name }) => name === integration.name,
+  )?.integrationId;
+
+  if (!integrationId) {
     const { status, data } = await request<{ integrationId: string }>(
       "POST",
       "/user/@me/hotel/integration",
-      { headers: session, body: { hotelId: hotel.hotelId, ...INTEGRATION } },
+      { headers: session, body: { hotelId: hotel.hotelId, ...integration } },
     );
 
-    if (status !== 200 || !data) fail(`hotel: integration failed (${status})`);
+    if (status !== 200 || !data) {
+      fail(`${integration.type}: integration failed (${status})`);
+    }
 
-    integration = {
-      integrationId: data!.integrationId,
-      name: INTEGRATION.name,
-    };
+    integrationId = data!.integrationId;
   }
 
   const { data } = await request<{ token: string }>(
     "GET",
-    `/user/@me/hotel/integration?hotelId=${hotel.hotelId}&integrationId=${integration.integrationId}`,
+    `/user/@me/hotel/integration?hotelId=${hotel.hotelId}&integrationId=${integrationId}`,
     { headers: session },
   );
+
   if (!data?.token) {
-    fail("hotel: license failed");
+    fail(`${integration.type}: license failed`);
   }
 
-  ok("hotel: license generated");
+  ok(`${integration.type}: license generated`);
   return data!.token;
 };
 
-const getOnetToken = async (session: Session): Promise<string> => {
+const regenerateToken = async (
+  name: string,
+  pathname: "/admin/tokens" | "/admin/apps",
+  body: { label: string } | { url: string },
+  session: Session,
+): Promise<string> => {
   const { status, data } = await request<{
-    tokens: { id: string; label: string }[];
-  }>("GET", "/admin/tokens", { headers: session });
+    tokens: { id: string; label?: string; url?: string }[];
+  }>("GET", pathname, { headers: session });
 
   if (status !== 200) {
-    fail(`onet: listing tokens failed (${status}), not admin?`);
+    fail(`${name}: listing tokens failed (${status}), not admin?`);
   }
 
-  for (const { id } of data!.tokens.filter(
-    ({ label }) => label === ONET_TOKEN_LABEL,
-  )) {
-    await request("DELETE", `/admin/tokens?id=${id}`, { headers: session });
+  const [key, value] = Object.entries(body)[0];
+  for (const token of data!.tokens) {
+    if (token[key as "label" | "url"] !== value) continue;
+    await request("DELETE", `${pathname}?id=${token.id}`, { headers: session });
   }
 
-  const { data: created } = await request<{ token: string }>(
-    "POST",
-    "/admin/tokens",
-    { headers: session, body: { label: ONET_TOKEN_LABEL } },
-  );
+  const { data: created } = await request<{ token: string }>("POST", pathname, {
+    headers: session,
+    body,
+  });
 
-  if (!created?.token) fail("onet: token creation failed");
+  if (!created?.token) fail(`${name}: token creation failed`);
 
-  ok("onet: token generated");
+  ok(`${name}: token generated`);
   return created!.token;
 };
 
@@ -207,15 +233,51 @@ const [owner] = seed.users;
 const [ownerSession] = sessions;
 await setAdmin(owner, ownerSession);
 
-const licenseToken = await getLicenseToken(seed.hotel.name, ownerSession);
-const onetToken = await getOnetToken(ownerSession);
+const hotel = await getHotel(seed.hotel.name, ownerSession);
+
+const clientLicense = await getLicenseToken(
+  hotel,
+  INTEGRATIONS.client,
+  ownerSession,
+);
+const webLicense = await getLicenseToken(hotel, INTEGRATIONS.web, ownerSession);
+const onetToken = await regenerateToken(
+  "onet",
+  "/admin/tokens",
+  { label: ONET_TOKEN_LABEL },
+  ownerSession,
+);
+const staticToken = await regenerateToken(
+  "static",
+  "/admin/apps",
+  { url: STATIC_URL },
+  ownerSession,
+);
+const assetEditorToken = await regenerateToken(
+  "asset-editor",
+  "/admin/apps",
+  { url: ASSET_EDITOR_URL },
+  ownerSession,
+);
 
 await updateConfig(join(reposDir, "openhotel/app/server/config.yml"), (c) => {
-  c.auth = { ...c.auth, enabled: true, licenseToken };
+  c.auth = { ...c.auth, enabled: true, licenseToken: clientLicense };
 });
 await updateConfig(join(reposDir, "onet/config.yml"), (c) => {
   c.auth = { ...c.auth, token: onetToken };
 });
+await updateConfig(join(reposDir, "web/app/server/config.yml"), (c) => {
+  c.auth = { ...c.auth, enabled: true, licenseToken: webLicense };
+});
+await updateConfig(join(reposDir, "static/app/server/config.yml"), (c) => {
+  c.auth = { ...c.auth, enabled: true, appToken: staticToken };
+});
+await updateConfig(
+  join(reposDir, "asset-editor/app/server/config.yml"),
+  (c) => {
+    c.auth = { ...c.auth, enabled: true, appToken: assetEditorToken };
+  },
+);
 
 console.log(`
 Ready! Restart the services to use the new tokens:
