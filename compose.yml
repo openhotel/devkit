@@ -56,6 +56,13 @@ services:
   client:
     <<: *dev
     container_name: client
+    depends_on:
+      net:
+        condition: service_started
+      auth:
+        condition: service_healthy
+      onet:
+        condition: service_healthy
     working_dir: /src/openhotel
     command: bash -c "deno task install && deno task start"
     volumes:
@@ -75,6 +82,12 @@ services:
         condition: service_healthy
     working_dir: /src/onet
     command: bash -c "yarn install && deno task start"
+    healthcheck:
+      test: curl -fs http://localhost:9400/api/v1/version
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5m
     volumes:
       - ${REPOS_DIR:-..}/onet:/src/onet
       - /src/onet/node_modules
@@ -83,6 +96,11 @@ services:
   web:
     <<: *dev
     container_name: web
+    depends_on:
+      net:
+        condition: service_started
+      auth:
+        condition: service_healthy
     working_dir: /src/web
     command: bash -c "deno task install && deno task start"
     volumes:

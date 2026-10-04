@@ -1,4 +1,5 @@
 version: development
+# auth.enabled & auth.appToken are set by `deno task seed`
 s3:
   enabled: true
   endpoint: localhost
