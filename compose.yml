@@ -20,6 +20,7 @@ services:
       - "2030:2030" # asset-editor
       - "1995:1995" # static
       - "9000:9000" # s3
+      - "8025:8025" # mail
 
   s3:
     image: chrislusf/seaweedfs:latest
@@ -32,9 +33,26 @@ services:
       - ./s3/config.json:/etc/seaweedfs/s3.json:ro
       - s3-data:/data
 
+  mail:
+    image: axllent/mailpit:latest
+    container_name: mail
+    network_mode: service:net
+    depends_on: [net]
+    restart: unless-stopped
+    command: >-
+      --smtp-tls-cert sans:localhost
+      --smtp-tls-key sans:localhost
+      --smtp-require-tls
+      --smtp-auth-accept-any
+
   auth:
     <<: *dev
     container_name: auth
+    depends_on:
+      net:
+        condition: service_started
+      mail:
+        condition: service_healthy
     build:
       context: .
       args:
