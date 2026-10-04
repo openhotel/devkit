@@ -7,47 +7,10 @@ import {
   ok,
   readYaml,
   ROOT,
+  type Service,
+  SERVICES,
   warn,
 } from "./utils.ts";
-
-type Service = {
-  name: string;
-  repo: string;
-  config: string;
-};
-
-const SERVICES: Service[] = [
-  {
-    name: "client",
-    repo: "openhotel",
-    config: "app/server/config.yml",
-  },
-  {
-    name: "auth",
-    repo: "auth",
-    config: "app/server/config.yml",
-  },
-  {
-    name: "onet",
-    repo: "onet",
-    config: "config.yml",
-  },
-  {
-    name: "web",
-    repo: "web",
-    config: "app/server/config.yml",
-  },
-  {
-    name: "asset-editor",
-    repo: "asset-editor",
-    config: "app/server/config.yml",
-  },
-  {
-    name: "static",
-    repo: "static",
-    config: "app/server/config.yml",
-  },
-];
 
 const run = async (cmd: string, ...args: string[]): Promise<boolean> => {
   try {
