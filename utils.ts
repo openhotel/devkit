@@ -5,6 +5,56 @@ import { join, resolve } from "@std/path";
 
 export const ROOT = import.meta.dirname!;
 
+export type Service = {
+  name: string;
+  repo: string;
+  config: string;
+  data: string[];
+};
+
+export const SERVICES: Service[] = [
+  {
+    name: "client",
+    repo: "openhotel",
+    config: "app/server/config.yml",
+    data: ["app/server/server-database*", "app/server/database-backups"],
+  },
+  {
+    name: "auth",
+    repo: "auth",
+    config: "app/server/config.yml",
+    data: [
+      "app/server/database*",
+      "app/server/deleteme-database*",
+      "app/server/backups",
+    ],
+  },
+  {
+    name: "onet",
+    repo: "onet",
+    config: "config.yml",
+    data: ["database*", "collections-key"],
+  },
+  {
+    name: "web",
+    repo: "web",
+    config: "app/server/config.yml",
+    data: ["app/server/database*", "app/server/backups"],
+  },
+  {
+    name: "asset-editor",
+    repo: "asset-editor",
+    config: "app/server/config.yml",
+    data: [],
+  },
+  {
+    name: "static",
+    repo: "static",
+    config: "app/server/config.yml",
+    data: ["app/server/database*", "app/server/files"],
+  },
+];
+
 export const ok = (message: string) =>
   console.log(`%c✔ ${message}`, "color: green");
 export const warn = (message: string) =>

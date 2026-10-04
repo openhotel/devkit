@@ -2,6 +2,7 @@
   "tasks": {
     "setup": "deno run --allow-read --allow-write --allow-run=git,docker setup.ts",
     "seed": "deno run --allow-read --allow-write --allow-net=localhost:2024 seed.ts",
+    "reset": "deno run --allow-read --allow-write --allow-run=docker reset.ts",
     "up": "docker compose up -d --build",
     "logs": "docker compose logs -f --tail=100",
     "down": "docker compose down"

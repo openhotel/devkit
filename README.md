@@ -42,6 +42,9 @@ deno task up auth client       # some services
 deno task logs                 # logs of all services
 deno task logs client          # logs of one service
 deno task down                 # stop everything
+deno task reset                # remove containers, s3 data and databases
+deno task reset --configs      # ...and the service configs
+deno task reset --cache        # ...and the deno cache
 ```
 
 ## S3
