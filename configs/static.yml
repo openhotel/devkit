@@ -1,1 +1,10 @@
 version: development
+s3:
+  enabled: true
+  endpoint: localhost
+  port: 9000
+  useSSL: false
+  accessKey: openhotel
+  secretKey: openhotel
+  region: us-east-1
+  bucket: static
