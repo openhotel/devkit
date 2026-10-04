@@ -1,0 +1,2 @@
+auth:
+  api: http://localhost:2024/api/v3

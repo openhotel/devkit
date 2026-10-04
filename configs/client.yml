@@ -1,0 +1,7 @@
+version: development
+auth:
+  api: http://localhost:2024
+onet:
+  api: http://localhost:9400
+phantom:
+  enabled: false

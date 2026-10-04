@@ -80,7 +80,6 @@ services:
       - /src/onet/node_modules
       - deno-cache:/root/.cache/deno
 
-
   web:
     <<: *dev
     container_name: web

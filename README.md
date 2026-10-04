@@ -2,20 +2,23 @@
 
 Run all OpenHotel stack locally with Docker.
 
-| Service | Repo                | URL                   |
-| ------- | ------------------- | --------------------- |
-| client  | `openhotel/openhotel` | http://localhost:1994 |
-| auth    | `openhotel/auth`    | http://localhost:2024 |
-| web     | `openhotel/web`     | http://localhost:2025 |
-| onet    | `openhotel/onet`    | http://localhost:9400 |
+| Service      | Repo                     | URL                   |
+| ------------ | ------------------------ | --------------------- |
+| client       | `openhotel/openhotel`    | http://localhost:1994 |
+| auth         | `openhotel/auth`         | http://localhost:2024 |
+| web          | `openhotel/web`          | http://localhost:2025 |
+| onet         | `openhotel/onet`         | http://localhost:9400 |
 | asset-editor | `openhotel/asset-editor` | http://localhost:2030 |
-| static  | `openhotel/static`  | http://localhost:1995 |
-| s3      | SeaweedFS           | http://localhost:9000 |
+| static       | `openhotel/static`       | http://localhost:1995 |
+| s3           | SeaweedFS                | http://localhost:9000 |
 
 ## Requirements
 
 - Docker
-- The service repos cloned next to this one (or set `REPOS_DIR` in `.env`)
+- Deno
+- Git
+
+The service repos are cloned next to this one (or in `REPOS_DIR` from `.env`):
 
 ```
 openhotel/
@@ -31,7 +34,7 @@ openhotel/
 ## Usage
 
 ```bash
-cp .env.example .env
+deno task setup                # clone missing repos and create dev configs
 deno task up                   # everything (in background)
 deno task up auth client       # some services
 deno task logs                 # logs of all services
