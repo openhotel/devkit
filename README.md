@@ -11,6 +11,7 @@ Run all OpenHotel stack locally with Docker.
 | asset-editor | `openhotel/asset-editor` | http://localhost:2030 |
 | static       | `openhotel/static`       | http://localhost:1995 |
 | s3           | SeaweedFS                | http://localhost:9000 |
+| mail         | Mailpit                  | http://localhost:8025 |
 
 ## Requirements
 

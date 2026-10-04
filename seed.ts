@@ -22,6 +22,7 @@ type Integration = {
 };
 
 const AUTH_API = "http://localhost:2024/api/v3";
+const MAIL_API = "http://localhost:8025/api/v1";
 const FINGERPRINT = "devkit-seed";
 const INTEGRATIONS: Record<string, Integration> = {
   client: {
@@ -77,11 +78,48 @@ const register = async ({ username, email, password }: User) => {
   else fail(`${username}: register failed (${status} ${message ?? ""})`);
 };
 
-const login = async ({ username, email, password }: User): Promise<Session> => {
+const verifyEmail = async ({ username, email }: User) => {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const { messages } = await fetch(
+      `${MAIL_API}/search?query=${encodeURIComponent(`to:"${email}"`)}`,
+    ).then((response) => response.json());
+
+    if (messages.length) {
+      const { HTML } = await fetch(
+        `${MAIL_API}/message/${messages[0].ID}`,
+      ).then((response) => response.json());
+
+      const [, id, token] =
+        /verify\?id=([^&"'\s<]+)&(?:amp;)?token=([^&"'\s<]+)/.exec(HTML) ?? [];
+      if (!id || !token) break;
+
+      const { status } = await request(
+        "GET",
+        `/account/verify?id=${id}&token=${token}`,
+      );
+      if (status !== 200) break;
+
+      ok(`${username}: email verified`);
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  fail(`${username}: email could not be verified`);
+};
+
+const login = async (user: User, retry = true): Promise<Session> => {
+  const { username, email, password } = user;
   const { status, data, message } = await request<{
     accountId: string;
     token: string;
   }>("POST", "/account/login", { body: { email, password } });
+
+  if (retry && message === "Your email is not verified!") {
+    await verifyEmail(user);
+    return login(user, false);
+  }
 
   if (status !== 200 || !data) {
     return fail(`${username}: login failed (${status} ${message ?? ""})`);
