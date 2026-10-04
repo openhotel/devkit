@@ -35,6 +35,8 @@ openhotel/
 
 ```bash
 deno task setup                # clone missing repos and create dev configs
+deno task up auth              # start auth
+deno task seed                 # create users, hotel and tokens (seed.yml)
 deno task up                   # everything (in background)
 deno task up auth client       # some services
 deno task logs                 # logs of all services
