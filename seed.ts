@@ -37,6 +37,7 @@ const INTEGRATIONS: Record<string, Integration> = {
   },
 };
 const ONET_TOKEN_LABEL = "onet";
+const ONET_API = "http://localhost:9400/api/v1";
 const STATIC_URL = "http://localhost:1995";
 const ASSET_EDITOR_URL = "http://localhost:2030";
 
@@ -242,7 +243,10 @@ const regenerateToken = async (
   return created!.token;
 };
 
-type Config = { auth?: Record<string, unknown> };
+type Config = {
+  auth?: Record<string, unknown>;
+  onet?: Record<string, unknown>;
+};
 
 const updateConfig = async (path: string, update: (config: Config) => void) => {
   try {
@@ -297,12 +301,19 @@ const assetEditorToken = await regenerateToken(
   { url: ASSET_EDITOR_URL },
   ownerSession,
 );
+const onetServiceToken = Array.from(
+  crypto.getRandomValues(new Uint8Array(32)),
+  (byte) => byte.toString(16).padStart(2, "0"),
+).join("");
 
 await updateConfig(join(reposDir, "openhotel/app/server/config.yml"), (c) => {
   c.auth = { ...c.auth, enabled: true, licenseToken: clientLicense };
 });
 await updateConfig(join(reposDir, "onet/config.yml"), (c) => {
-  c.auth = { ...c.auth, token: onetToken };
+  c.auth = { ...c.auth, token: onetToken, serviceToken: onetServiceToken };
+});
+await updateConfig(join(reposDir, "auth/app/server/config.yml"), (c) => {
+  c.onet = { ...c.onet, enabled: true, api: ONET_API, token: onetServiceToken };
 });
 await updateConfig(join(reposDir, "web/app/server/config.yml"), (c) => {
   c.auth = { ...c.auth, enabled: true, licenseToken: webLicense };
